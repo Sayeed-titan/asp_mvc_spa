@@ -1,0 +1,85 @@
+@model MasterDetails_spa.Models.ViewModels.ProductVM
+
+<div class="row">
+    <div class="col">
+        @using (Html.BeginForm("Create", "Products", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            <div class="row">
+                <div class="col-6">
+                    <h2 class="display-5">Add New Product</h2>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.ProductName, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.ProductName, new { @class = "form-control form-control-sm" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.ProductName, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.Price, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.Price, new { @class = "form-control form-control-sm" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.Price, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.PDate, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.PDate, new { @class = "form-control form-control-sm", type = "date" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.PDate, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.ImageFile, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.ImageFile, new { @class = "form-control form-control-sm", type = "file" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.ImageFile, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.IsActive, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                                @Html.CheckBoxFor(x => x.IsActive)
+                        </div>
+
+                    </div>
+                </div>
+                <div class="col-6">
+                    <h2 class="display-5">Color List</h2>
+                    <div class="d-flex justify-content-end">
+                        @Html.ActionLink("+", "", null, new { @class = "btn btn-primary btn-sm mb-2 btnAddMore" })
+                    </div>
+                    <div class="con">
+                        @Html.Action("AddColor")
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-9">
+                       <input type="submit" value="Save" class="btn btn-primary mt-2"/>
+                    </div>
+                </div>
+            </div>
+
+        }
+    </div>
+</div>
+
+<script>
+    $(".btnAddMore").click((e) => {
+        e.preventDefault();
+        $.ajax({
+            url: "/Products/AddColor",
+            type: "GET",
+            success: (d) => {
+                $(".con").append(d);                
+            }
+        });
+    })
+</script>
