@@ -1,0 +1,562 @@
+public class Color
+    {
+        public int ColorId { get; set; }
+        [Required,StringLength(50),Display(Name = "Color Name")]
+        public string ColorName { get; set; }
+
+        //nev
+        public virtual ICollection<ProductDetails> ProductDetails { get; set; }=new List<ProductDetails>();
+
+    }
+    public class Product
+    {
+        public int ProductId { get; set; }
+        [Required, StringLength(50), Display(Name = "Product Name")]
+        public string ProductName { get; set; }
+        public int Price { get; set; }
+        public bool IsActive { get; set; }
+        [Column(TypeName ="date"),DisplayFormat(DataFormatString ="{0:yyyy-MM-dd}",ApplyFormatInEditMode =true)]
+        public DateTime PDate { get; set; }
+        public string Image { get; set; }
+
+        public virtual ICollection<ProductDetails> ProductDetails { get; set; } = new List<ProductDetails>();
+
+    }
+    public class ProductDetails
+    {
+        public int ProductDetailsId { get; set; }
+        [ForeignKey("Product")]
+        public int ProductId { get; set; }
+        [ForeignKey("Color")]
+        public int ColorId { get; set; }
+        
+        //nev
+        public virtual Product Product { get; set; }
+        public virtual Color Color { get; set; }
+
+    }
+    public class ProductDbContext : DbContext
+    {
+        public DbSet<Product> Products { get; set; }
+        public DbSet<Color> Colors { get; set; }
+        public DbSet<ProductDetails> ProductDetails { get; set; }
+    }
+
+-------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------------
+
+
+public class ProductsController : Controller
+    {
+        ProductDbContext db = new ProductDbContext();
+        // GET: Products
+        public ActionResult Index()
+        {
+            var products = db.Products.OrderByDescending(p => p.ProductId).ToList();
+            foreach (var product in products)
+            {
+                db.Entry(product).Collection(p => p.ProductDetails).Load();
+                foreach (var details in product.ProductDetails)
+                {
+                    db.Entry(details).Reference(d => d.Color).Load();
+                }
+            }
+            return View(products);
+        }
+
+        [HttpGet]
+        public ActionResult Create()
+        {
+            return PartialView("_create");
+        }
+
+        public ActionResult AddColor(int? id)
+        {
+            ViewBag.colors = new SelectList(db.Colors.ToList(), "ColorId", "ColorName", id ?? 0);
+            return PartialView("_addColor");
+        }
+        [HttpPost]
+        public ActionResult Create(ProductVM productVM, int[] colorId)
+        {
+            if (ModelState.IsValid)
+            {
+                var product = new Product()
+                {
+                    ProductName = productVM.ProductName,
+                    PDate= productVM.PDate,
+                    Price= productVM.Price,
+                    IsActive= productVM.IsActive
+                };
+                //for Image
+                HttpPostedFileBase file = productVM.ImageFile;
+                if (file != null) 
+                {
+                    string fileName = Path.Combine("/Images/" + DateTime.Now.Ticks.ToString() + Path.GetExtension(file.FileName));
+                    file.SaveAs(Server.MapPath(fileName));
+                    product.Image = fileName;
+                }
+
+                //ColorId
+                foreach (var i in colorId)
+                {
+                    var d = new ProductDetails()
+                    {
+                        Product=product,
+                        ProductId=product.ProductId,
+                        ColorId=i
+                    };
+                    db.ProductDetails.Add(d);
+                }
+                db.SaveChanges();
+                return RedirectToAction("Index");
+
+            }
+            return View(productVM);
+        }
+
+        [HttpGet]
+        public ActionResult Edit(int? id)
+        {
+            var product = db.Products.Find(id);
+            var details = db.ProductDetails.Where(x => x.ProductId == product.ProductId).ToList();
+
+            var pObj = new ProductVM()
+            {
+                ProductId=product.ProductId,
+                ProductDetails=details,
+                Image=product.Image,
+                IsActive=product.IsActive,
+                PDate=product.PDate,
+                ProductName=product.ProductName,
+                Price=product.Price
+            };
+
+
+            return PartialView("_edit", pObj);
+        }
+
+        [HttpPost]
+        public ActionResult Edit(ProductVM productVM, int[] colorId)
+        {
+            if (ModelState.IsValid)
+            {
+                var product = db.Products.Find(productVM.ProductId);
+                var details = db.ProductDetails.Where(x => x.ProductId == product.ProductId).ToList();
+
+                product.ProductName = productVM.ProductName;
+                product.Price = productVM.Price;
+                product.IsActive = productVM.IsActive;
+                product.PDate=productVM.PDate;
+
+                //for image
+                HttpPostedFileBase file = productVM.ImageFile;
+                var oldImage = productVM.Image;
+                if (file != null)
+                {
+                    string fileName = Path.Combine("/Images/" + DateTime.Now.Ticks.ToString() + Path.GetExtension(file.FileName));
+                    file.SaveAs(Server.MapPath(fileName));
+                    product.Image = fileName;
+                }
+                else
+                {
+                    product.Image = oldImage;
+                }
+
+                //for color
+                db.ProductDetails.RemoveRange(details);
+                foreach (var i in colorId)
+                {
+                    var d = new ProductDetails()
+                    {
+                        Product = product,
+                        ProductId = product.ProductId,
+                        ColorId = i
+                    };
+                    db.ProductDetails.Add(d);
+                }
+                db.SaveChanges();
+                return RedirectToAction("Index");
+
+            }
+            return View(productVM);
+        }
+        public ActionResult Delete(int? id)
+        {
+            var product = db.Products.Find(id);
+            var details = db.ProductDetails.Where(x => x.ProductId == product.ProductId).ToList();
+            db.ProductDetails.RemoveRange(details);
+            db.Products.Remove(product);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+    }
+
+-------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------------
+
+
+
+@model IEnumerable<MasterDetails_spa.Models.Product>
+@{
+    ViewBag.Title = "Index";
+}
+
+<h2 class="display-4">Product List</h2>
+
+<div class="d-flex justify-content-end">
+    @Html.ActionLink("Add New Product", "Create", null, new { @class = "btn btn-primary btn-sm btnCreate my-3 px-4" })
+</div>
+
+<div>
+    @foreach (var product in Model)
+    {
+        <div class="card mb-2">
+            <div class="card-header d-flex justify-content-between">
+                <div>
+                    <img src="@product.Image" width="30" style="border-radius:6px;" />
+                    <label class="me-2"><b>ProductName: </b>@Html.DisplayFor(x => product.ProductName)</label>
+                    <label class="me-2"><b>Price: </b>@Html.DisplayFor(x => product.Price)</label>
+                    <label class="me-2"><b>P Date: </b>@Html.DisplayFor(x => product.PDate)</label>
+                    <label class="me-2"><b>Available: </b>@Html.DisplayFor(x => product.IsActive)</label>
+                </div>
+                <div>
+                    <button class="btn btn-success btn-sm btnEdit" type="button" data-id="@product.ProductId">Edit</button>
+                    @Html.ActionLink("Delete", "Delete", null, new { id = product.ProductId }, new {@class= "btn btn-danger btn-sm" })
+
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered table-striped table-sm">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Color Id</th>
+                            <th>Color Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in product.ProductDetails)
+                        {
+                            <tr>
+                                <td>@Html.DisplayFor(x => item.Color.ColorId)</td>
+                                <td>@Html.DisplayFor(x => item.Color.ColorName)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<section class="mcon" style="display:none;">
+    <div class="mbody p-5">
+        <div class="macon"></div>
+        <hr />
+        <div class="modal-footer">
+            <button class="btn btn-danger btnClose">Close</button>
+        </div>
+    </div>
+</section>
+
+-------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------------
+
+@model MasterDetails_spa.Models.Color
+
+<div class="row mb-2 rc">
+    <div class="col-9">
+        @Html.DropDownListFor(x => x.ColorId, ViewBag.colors as SelectList, "----Select----", htmlAttributes: new { @class = "form-select form-select-sm" })
+    </div>
+    <div class="col-3">
+        @Html.ActionLink("x", "", null, new {@class="btn btn-danger btn-sm btnRemove"})
+    </div>
+</div>
+
+-------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------------
+
+@model MasterDetails_spa.Models.ViewModels.ProductVM
+
+<div class="row">
+    <div class="col">
+        @using (Html.BeginForm("Create", "Products", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            <div class="row">
+                <div class="col-6">
+                    <h2 class="display-5">Add New Product</h2>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.ProductName, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.ProductName, new { @class = "form-control form-control-sm" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.ProductName, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.Price, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.Price, new { @class = "form-control form-control-sm" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.Price, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.PDate, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.PDate, new { @class = "form-control form-control-sm", type = "date" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.PDate, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.ImageFile, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.ImageFile, new { @class = "form-control form-control-sm", type = "file" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.ImageFile, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.IsActive, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                                @Html.CheckBoxFor(x => x.IsActive)
+                        </div>
+
+                    </div>
+                </div>
+                <div class="col-6">
+                    <h2 class="display-5">Color List</h2>
+                    <div class="d-flex justify-content-end">
+                        @Html.ActionLink("+", "", null, new { @class = "btn btn-primary btn-sm mb-2 btnAddMore" })
+                    </div>
+                    <div class="con">
+                        @Html.Action("AddColor")
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-9">
+                       <input type="submit" value="Save" class="btn btn-primary mt-2"/>
+                    </div>
+                </div>
+            </div>
+
+        }
+    </div>
+</div>
+
+<script>
+    $(".btnAddMore").click((e) => {
+        e.preventDefault();
+        $.ajax({
+            url: "/Products/AddColor",
+            type: "GET",
+            success: (d) => {
+                $(".con").append(d);                
+            }
+        });
+    })
+</script>
+
+-------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------------
+@model MasterDetails_spa.Models.ViewModels.ProductVM
+
+<div class="row">
+    <div class="col">
+        @using (Html.BeginForm("Edit", "Products", FormMethod.Post, new { enctype = "multipart/form-data" }))
+        {
+            <div class="row">
+                <div class="col-6">
+                    <h2 class="display-5">Edit Product</h2>
+                    @Html.HiddenFor(x => x.ProductId)
+                    @Html.HiddenFor(x => x.Image)
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.ProductName, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.ProductName, new { @class = "form-control form-control-sm" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.ProductName, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.Price, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.Price, new { @class = "form-control form-control-sm" })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.Price, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.PDate, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.EditorFor(x => x.PDate, "{0:yyyy-MM-dd}", new { htmlAttributes = new { @class = "form-control form-control-sm", type = "date" } })
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.PDate, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.ImageFile, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            @Html.TextBoxFor(x => x.ImageFile, new { @class = "form-control form-control-sm mb-2", type = "file" })
+                            <img src="@Model.Image" width="30" style="border-radius:6px;" />
+                        </div>
+                        <div class="col-4">
+                            @Html.ValidationMessageFor(x => x.ImageFile, "", new { @class = "text-danger" })
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        @Html.LabelFor(x => x.IsActive, htmlAttributes: new { @class = "col-form-label col-form-label-sm col-3" })
+                        <div class="col-6">
+                            <div class="checkbox">
+                                @Html.CheckBoxFor(x => x.IsActive)
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="col-6">
+                    <h2 class="display-5">Color List</h2>
+                    <div class="d-flex justify-content-end">
+                        @Html.ActionLink("+", "", null, new { @class = "btn btn-primary btn-sm mb-2 btnAddMore" })
+                    </div>
+                    <div class="con">
+                        @foreach (var item in Model.ProductDetails)
+                        {
+                            @Html.Action("AddColor", "", new {id=item.Color.ColorId})
+                        }
+
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-9">
+                        <input type="submit" value="Update" class="btn btn-primary mt-2" />
+                    </div>
+                </div>
+            </div>
+
+        }
+    </div>
+</div>
+
+<script>
+    $(".btnAddMore").click((e) => {
+        e.preventDefault();
+        $.ajax({
+            url: "/Products/AddColor",
+            type: "GET",
+            success: (d) => {
+                $(".con").append(d);
+            }
+        });
+    })
+</script>
+
+
+-------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------------
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewBag.Title - My ASP.NET Application</title>
+    @Styles.Render("~/Content/css")
+    @Scripts.Render("~/bundles/modernizr")
+</head>
+<body>
+    <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-success">
+        <div class="container-fluid">
+            @Html.ActionLink("MasterDetails_R63_spa", "Index", "Home", new { area = "" }, new { @class = "navbar-brand" })
+            <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" title="Toggle navigation" aria-controls="navbarSupportedContent"
+                    aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse d-sm-inline-flex justify-content-between">
+                <ul class="navbar-nav flex-grow-1">
+                    <li>@Html.ActionLink("Home", "Index", "Home", new { area = "" }, new { @class = "nav-link" })</li>
+                    <li>@Html.ActionLink("Products", "Index", "Products", new { area = "" }, new { @class = "nav-link" })</li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container-fluid body-content">
+        @RenderBody()
+
+    </div>
+    <footer class="container-fluid">
+        <p class="text-center">&copy; @DateTime.Now.Year - www.isdb-bisew.org</p>
+    </footer>
+    @Scripts.Render("~/bundles/jquery")
+    @Scripts.Render("~/bundles/bootstrap")
+    @RenderSection("scripts", required: false)
+
+    <script>
+        $(document).ready(() => {
+            $(".btnCreate").click((e) => {
+                e.preventDefault();
+                $.ajax({
+                    url: "/Products/Create",
+                    type: "GET",
+                    success: (d) => {
+                        $(".macon").html(d);
+                        $(".mcon").show();
+                    }
+                });
+            });
+
+            $(".btnEdit").click((e) => {
+                e.preventDefault();
+                var id = $(e.currentTarget).data("id");
+                $.ajax({
+                    url: "/Products/Edit/" + id,
+                    type: "GET",
+                    success: (d) => {
+                        $(".macon").html(d);
+                        $(".mcon").show();
+                    }
+                });
+            })
+        });
+
+        $(document).on("click", ".btnRemove", (e) => {
+            e.preventDefault();
+            $(e.currentTarget).closest(".rc").remove();
+        })
+
+        $(".btnClose").click(() => {
+            $(".mcon").hide();
+        })
+
+    </script>
+</body>
+</html>
+
+
+-------------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------------
+
+
+
+
