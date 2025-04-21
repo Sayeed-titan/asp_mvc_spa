@@ -1,0 +1,54 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Entity;
+using System.Linq;
+using System.Web;
+
+namespace MasterDetails_spa.Models
+{
+    public class Color
+    {
+        public int ColorId { get; set; }
+        [Required,StringLength(50),Display(Name = "Color Name")]
+        public string ColorName { get; set; }
+
+        //nev
+        public virtual ICollection<ProductDetails> ProductDetails { get; set; }=new List<ProductDetails>();
+
+    }
+    public class Product
+    {
+        public int ProductId { get; set; }
+        [Required, StringLength(50), Display(Name = "Product Name")]
+        public string ProductName { get; set; }
+        public int Price { get; set; }
+        public bool IsActive { get; set; }
+        [Column(TypeName ="date"),DisplayFormat(DataFormatString ="{0:yyyy-MM-dd}",ApplyFormatInEditMode =true)]
+        public DateTime PDate { get; set; }
+        public string Image { get; set; }
+
+        public virtual ICollection<ProductDetails> ProductDetails { get; set; } = new List<ProductDetails>();
+
+    }
+    public class ProductDetails
+    {
+        public int ProductDetailsId { get; set; }
+        [ForeignKey("Product")]
+        public int ProductId { get; set; }
+        [ForeignKey("Color")]
+        public int ColorId { get; set; }
+        
+        //nev
+        public virtual Product Product { get; set; }
+        public virtual Color Color { get; set; }
+
+    }
+    public class ProductDbContext : DbContext
+    {
+        public DbSet<Product> Products { get; set; }
+        public DbSet<Color> Colors { get; set; }
+        public DbSet<ProductDetails> ProductDetails { get; set; }
+    }
+}
