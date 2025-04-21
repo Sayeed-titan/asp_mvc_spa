@@ -1,0 +1,61 @@
+@model IEnumerable<MasterDetails_spa.Models.Product>
+@{
+    ViewBag.Title = "Index";
+}
+
+<h2 class="display-4">Product List</h2>
+
+<div class="d-flex justify-content-end">
+    @Html.ActionLink("Add New Product", "Create", null, new { @class = "btn btn-primary btn-sm btnCreate my-3 px-4" })
+</div>
+
+<div>
+    @foreach (var product in Model)
+    {
+        <div class="card mb-2">
+            <div class="card-header d-flex justify-content-between">
+                <div>
+                    <img src="@product.Image" width="30" style="border-radius:6px;" />
+                    <label class="me-2"><b>ProductName: </b>@Html.DisplayFor(x => product.ProductName)</label>
+                    <label class="me-2"><b>Price: </b>@Html.DisplayFor(x => product.Price)</label>
+                    <label class="me-2"><b>P Date: </b>@Html.DisplayFor(x => product.PDate)</label>
+                    <label class="me-2"><b>Available: </b>@Html.DisplayFor(x => product.IsActive)</label>
+                </div>
+                <div>
+                    <button class="btn btn-success btn-sm btnEdit" type="button" data-id="@product.ProductId">Edit</button>
+                    @Html.ActionLink("Delete", "Delete", null, new { id = product.ProductId }, new {@class= "btn btn-danger btn-sm" })
+
+                </div>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered table-striped table-sm">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Color Id</th>
+                            <th>Color Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in product.ProductDetails)
+                        {
+                            <tr>
+                                <td>@Html.DisplayFor(x => item.Color.ColorId)</td>
+                                <td>@Html.DisplayFor(x => item.Color.ColorName)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+<section class="mcon" style="display:none;">
+    <div class="mbody p-5">
+        <div class="macon"></div>
+        <hr />
+        <div class="modal-footer">
+            <button class="btn btn-danger btnClose">Close</button>
+        </div>
+    </div>
+</section>
