@@ -1,0 +1,156 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using work_01_MasterDetails_spa.Models;
+using work_01_MasterDetails_spa.Models.ViewModels;
+
+namespace MasterDetails_spa.Controllers
+{
+    public class ProductsController : Controller
+    {
+        ProductDbContext db = new ProductDbContext();
+        // GET: Products
+        public ActionResult Index()
+        {
+            var products = db.Products.OrderByDescending(p => p.ProductId).ToList();
+            foreach (var product in products)
+            {
+                db.Entry(product).Collection(p => p.ProductDetails).Load();
+                foreach (var details in product.ProductDetails)
+                {
+                    db.Entry(details).Reference(d => d.Color).Load();
+                }
+            }
+            return View(products);
+        }
+
+        [HttpGet]
+        public ActionResult Create()
+        {
+            return PartialView("_create");
+        }
+
+        public ActionResult AddColor(int? id)
+        {
+            ViewBag.colors = new SelectList(db.Colors.ToList(), "ColorId", "ColorName", id ?? 0);
+            return PartialView("_addColor");
+        }
+        [HttpPost]
+        public ActionResult Create(ProductVM productVM, int[] colorId)
+        {
+            if (ModelState.IsValid)
+            {
+                var product = new Product()
+                {
+                    ProductName = productVM.ProductName,
+                    PDate= productVM.PDate,
+                    Price= productVM.Price,
+                    IsActive= productVM.IsActive
+                };
+                //for Image
+                HttpPostedFileBase file = productVM.ImageFile;
+                if (file != null) 
+                {
+                    string fileName = Path.Combine("/Images/" + DateTime.Now.Ticks.ToString() + Path.GetExtension(file.FileName));
+                    file.SaveAs(Server.MapPath(fileName));
+                    product.Image = fileName;
+                }
+
+                //ColorId
+                foreach (var i in colorId)
+                {
+                    var d = new ProductDetails()
+                    {
+                        Product=product,
+                        ProductId=product.ProductId,
+                        ColorId=i
+                    };
+                    db.ProductDetails.Add(d);
+                }
+                db.SaveChanges();
+                return RedirectToAction("Index");
+
+            }
+            return View(productVM);
+        }
+
+        [HttpGet]
+        public ActionResult Edit(int? id)
+        {
+            var product = db.Products.Find(id);
+            var details = db.ProductDetails.Where(x => x.ProductId == product.ProductId).ToList();
+
+            var pObj = new ProductVM()
+            {
+                ProductId=product.ProductId,
+                ProductDetails=details,
+                Image=product.Image,
+                IsActive=product.IsActive,
+                PDate=product.PDate,
+                ProductName=product.ProductName,
+                Price=product.Price
+            };
+
+
+            return PartialView("_edit", pObj);
+        }
+
+        [HttpPost]
+        public ActionResult Edit(ProductVM productVM, int[] colorId)
+        {
+            if (ModelState.IsValid)
+            {
+                var product = db.Products.Find(productVM.ProductId);
+                var details = db.ProductDetails.Where(x => x.ProductId == product.ProductId).ToList();
+
+                product.ProductName = productVM.ProductName;
+                product.Price = productVM.Price;
+                product.IsActive = productVM.IsActive;
+                product.PDate=productVM.PDate;
+
+                //for image
+                HttpPostedFileBase file = productVM.ImageFile;
+                var oldImage = productVM.Image;
+                if (file != null)
+                {
+                    string fileName = Path.Combine("/Images/" + DateTime.Now.Ticks.ToString() + Path.GetExtension(file.FileName));
+                    file.SaveAs(Server.MapPath(fileName));
+                    product.Image = fileName;
+                }
+                else
+                {
+                    product.Image = oldImage;
+                }
+
+                //for color
+                db.ProductDetails.RemoveRange(details);
+                foreach (var i in colorId)
+                {
+                    var d = new ProductDetails()
+                    {
+                        Product = product,
+                        ProductId = product.ProductId,
+                        ColorId = i
+                    };
+                    db.ProductDetails.Add(d);
+                }
+                db.SaveChanges();
+                return RedirectToAction("Index");
+
+            }
+            return View(productVM);
+        }
+        public ActionResult Delete(int? id)
+        {
+            var product = db.Products.Find(id);
+            var details = db.ProductDetails.Where(x => x.ProductId == product.ProductId).ToList();
+            db.ProductDetails.RemoveRange(details);
+            db.Products.Remove(product);
+            db.SaveChanges();
+            return RedirectToAction("Index");
+        }
+    }
+}
