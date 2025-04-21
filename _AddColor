@@ -1,0 +1,10 @@
+@model MasterDetails_spa.Models.Color
+
+<div class="row mb-2 rc">
+    <div class="col-9">
+        @Html.DropDownListFor(x => x.ColorId, ViewBag.colors as SelectList, "----Select----", htmlAttributes: new { @class = "form-select form-select-sm" })
+    </div>
+    <div class="col-3">
+        @Html.ActionLink("x", "", null, new {@class="btn btn-danger btn-sm btnRemove"})
+    </div>
+</div>
